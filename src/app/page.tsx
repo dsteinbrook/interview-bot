@@ -1,18 +1,63 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { TextField, Paper, Container, Box, Typography } from '@mui/material';
+import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer } from '@mui/material';
+import { DBConversation, createConversation, getConversations, getConversationMessages } from '@/utils/db';
+import AddIcon from '@mui/icons-material/Add';
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
+
+const DRAWER_WIDTH = 300;
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState<DBConversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load conversations on mount
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const convos = await getConversations();
+      setConversations(convos);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    }
+  };
+
+  const startNewConversation = async () => {
+    try {
+      const title = `Conversation ${conversations.length + 1}`;
+      const newConversationId = await createConversation(title);
+      setCurrentConversationId(newConversationId);
+      setMessages([]);
+      await loadConversations();
+    } catch (error) {
+      console.error('Error creating new conversation:', error);
+    }
+  };
+
+  const loadConversation = async (conversationId: number) => {
+    try {
+      const messages = await getConversationMessages(conversationId);
+      setCurrentConversationId(conversationId);
+      setMessages(messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })));
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,6 +70,11 @@ export default function Home() {
   const handleSubmit = async (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
       e.preventDefault();
+
+      if (!currentConversationId) {
+        await startNewConversation();
+      }
+
       const userMessage: Message = { role: 'user', content: input.trim() };
       setMessages(prev => [...prev, userMessage]);
       setInput('');
@@ -38,6 +88,7 @@ export default function Home() {
           },
           body: JSON.stringify({
             messages: [...messages, userMessage],
+            conversationId: currentConversationId
           }),
         });
 
@@ -61,60 +112,104 @@ export default function Home() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ height: '100vh', py: 2 }}>
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          bgcolor: 'background.default'
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+          },
         }}
       >
-        <Box 
-          sx={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2
-          }}
-        >
-          {messages.map((message, index) => (
-            <Paper
-              key={index}
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={startNewConversation}
+          >
+            New Chat
+          </Button>
+        </Box>
+        <List sx={{ overflow: 'auto' }}>
+          {conversations.map((conversation) => (
+            <ListItemButton
+              key={conversation.id}
+              onClick={() => loadConversation(conversation.id)}
+              selected={conversation.id === currentConversationId}
               sx={{
-                p: 2,
-                maxWidth: '80%',
-                alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                bgcolor: message.role === 'user' ? 'primary.main' : 'background.paper',
-                color: message.role === 'user' ? 'white' : 'text.primary'
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
               }}
             >
-              <Typography>{message.content}</Typography>
-            </Paper>
+              <ListItemText
+                primary={conversation.title}
+                secondary={new Date(conversation.updated_at).toLocaleDateString()}
+              />
+            </ListItemButton>
           ))}
-          <div ref={messagesEndRef} />
-        </Box>
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <TextField
-            fullWidth
-            multiline
-            maxRows={4}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleSubmit}
-            placeholder="Type your message and press Enter to send..."
-            disabled={isLoading}
+        </List>
+      </Drawer>
+      <Box sx={{ flexGrow: 1, p: 2 }}>
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            bgcolor: 'background.default'
+          }}
+        >
+          <Box 
             sx={{ 
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
+              flex: 1, 
+              overflowY: 'auto', 
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
             }}
-          />
-        </Box>
-      </Paper>
-    </Container>
+          >
+            {messages.map((message, index) => (
+              <Paper
+                key={index}
+                sx={{
+                  p: 2,
+                  maxWidth: '80%',
+                  alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                  bgcolor: message.role === 'user' ? 'primary.main' : 'background.paper',
+                  color: message.role === 'user' ? 'white' : 'text.primary'
+                }}
+              >
+                <Typography>{message.content}</Typography>
+              </Paper>
+            ))}
+            <div ref={messagesEndRef} />
+          </Box>
+          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+            <TextField
+              fullWidth
+              multiline
+              maxRows={4}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleSubmit}
+              placeholder="Type your message and press Enter to send..."
+              disabled={isLoading}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2
+                }
+              }}
+            />
+          </Box>
+        </Paper>
+      </Box>
+    </Box>
   );
 }
