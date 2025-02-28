@@ -94,13 +94,32 @@ export async function getConversationMessages(conversationId: number): Promise<D
   }
 }
 
-// Get all conversations
-export async function getConversations(): Promise<DBConversation[]> {
+// Get conversations with pagination
+export async function getConversations(page: number = 1, pageSize: number = 20): Promise<{
+  conversations: DBConversation[];
+  hasMore: boolean;
+  total: number;
+}> {
   const db = await getDb();
   try {
-    return await db.all<DBConversation[]>(
-      'SELECT * FROM conversations ORDER BY updated_at DESC'
+    const offset = (page - 1) * pageSize;
+    
+    // Get total count
+    const totalResult = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM conversations');
+    const total = totalResult?.count || 0;
+
+    // Get paginated conversations
+    const conversations = await db.all<DBConversation[]>(
+      'SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ? OFFSET ?',
+      pageSize,
+      offset
     );
+
+    return {
+      conversations,
+      hasMore: offset + conversations.length < total,
+      total
+    };
   } finally {
     await db.close();
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer } from '@mui/material';
+import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer, CircularProgress } from '@mui/material';
 import { DBConversation, createConversation, getConversations, getConversationMessages } from '@/utils/db';
 import AddIcon from '@mui/icons-material/Add';
 
@@ -11,6 +11,7 @@ interface Message {
 }
 
 const DRAWER_WIDTH = 300;
+const CONVERSATIONS_PAGE_SIZE = 20;
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,19 +19,53 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversations, setConversations] = useState<DBConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Load conversations on mount
+  // Load initial conversations
   useEffect(() => {
-    loadConversations();
+    loadConversations(1, true);
   }, []);
 
-  const loadConversations = async () => {
+  // Intersection Observer for infinite scrolling
+  useEffect(() => {
+    if (!conversationsContainerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const lastEntry = entries[entries.length - 1];
+        if (lastEntry.isIntersecting && hasMoreConversations && !isLoadingMore) {
+          loadMoreConversations();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(conversationsContainerRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMoreConversations, isLoadingMore]);
+
+  const loadConversations = async (page: number, reset: boolean = false) => {
     try {
-      const convos = await getConversations();
-      setConversations(convos);
+      setIsLoadingMore(true);
+      const result = await getConversations(page, CONVERSATIONS_PAGE_SIZE);
+      setHasMoreConversations(result.hasMore);
+      setConversations(prev => reset ? result.conversations : [...prev, ...result.conversations]);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error loading conversations:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const loadMoreConversations = () => {
+    if (hasMoreConversations && !isLoadingMore) {
+      loadConversations(currentPage + 1);
     }
   };
 
@@ -40,7 +75,8 @@ export default function Home() {
       const newConversationId = await createConversation(title);
       setCurrentConversationId(newConversationId);
       setMessages([]);
-      await loadConversations();
+      // Reload first page of conversations
+      await loadConversations(1, true);
     } catch (error) {
       console.error('Error creating new conversation:', error);
     }
@@ -134,7 +170,7 @@ export default function Home() {
             New Chat
           </Button>
         </Box>
-        <List sx={{ overflow: 'auto' }}>
+        <List sx={{ overflow: 'auto', flex: 1, position: 'relative' }}>
           {conversations.map((conversation) => (
             <ListItemButton
               key={conversation.id}
@@ -153,6 +189,12 @@ export default function Home() {
               />
             </ListItemButton>
           ))}
+          {isLoadingMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          <div ref={conversationsContainerRef} style={{ height: 20 }} />
         </List>
       </Drawer>
       <Box sx={{ flexGrow: 1, p: 2 }}>
