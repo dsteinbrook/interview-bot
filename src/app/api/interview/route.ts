@@ -1,14 +1,7 @@
 import { Interview, ConversationStatus, ConversationState } from "@/utils/interviewController";
 import {NextResponse} from 'next/server';
-import {OpenAI} from 'openai';
-import {zodResponseFormat} from "openai/helpers/zod";
-import {z} from "zod";
+import {classifyUserMessage} from '@/utils/openai'
 import {getConversationState, setConversationState, addMessage} from "@/utils/db";
-
-// Define the Zod schema for the structured output
-const ClassificationSchema = z.object({
-    selectedOptionIndex: z.number()
-  });
 
 interface BotResponse {
 role: 'user' | 'assistant' | 'system';
@@ -16,29 +9,25 @@ content: string;
 status: ConversationStatus
 }
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
-const interview = new Interview('start');
+const interview = new Interview('0-0');
 
 interview.addNode({
-    id: 'start',
+    id: '0-0',
     text: 'Hello! Are you currently open to discussing the forklift operator role?',
     options: [
         {
             text: 'Yes',
-            nextNodeId: 'open_to_discuss',
+            nextNodeId: '1-0',
         },
         {
             text: 'No',
-            nextNodeId: 'not_open_to_discuss',
+            nextNodeId: '0-1',
         }
     ]
 });
 
 interview.addNode({
-    id: 'not_open_to_discuss',
+    id: '0-1',
     text: 'No problem. Best of luck!',
     onEnter: () => {
         interview.updateStatus(ConversationStatus.Completed)
@@ -48,69 +37,23 @@ interview.addNode({
 })
 
 interview.addNode({
-    id: 'open_to_discuss',
-    text: 'Great! I can send you some more information about the role and the application process.',
+    id: '1-0',
+    text: 'Excellent! Let\'s start with some basic information. What is your name?',
+    onEnter: () => {
+        interview.setFlag('collectName', true)
+    },
     options: [
-        
+        {
+            nextNodeId: '1-1',
+        } 
     ]
 });
 
-async function classifyUserMessage(userMessage: string, options: string[]) {
-   try {
-
-    console.log('userMessage', userMessage);
-    console.log('options', options);
-
-    if (!userMessage.trim()) {
-        throw new Error('User message cannot be empty');
-      }
-      
-      if (!options.length) {
-        throw new Error('Options array cannot be empty');
-      }
-
-        // Format options for the prompt
-    const formattedOptions = options
-    .map((option, index) => `${index}: ${option}`)
-    .join('\n');
-  
-  // Create the system prompt
-  const systemPrompt = `
-You are a classification assistant. Your task is to classify the user's message into exactly one of the provided options.
-Choose the option that best matches the user's message.
-
-Available options:
-${formattedOptions}
-
-Respond with the index of the selected option (0 to ${options.length - 1}).
-You must select exactly one option.
-`;
-
-  // Make the API call with structured output
-  const response = await openai.beta.chat.completions.parse({
-    model: "gpt-4o",
-    messages: [
-
-        {
-            role: 'system',
-            content: systemPrompt
-        }, {
-            role: 'user',
-            content: userMessage
-        }
-
-    ],
-    response_format: zodResponseFormat(ClassificationSchema, 'option')
-  });
-
-  const optionIndex = response.choices[0].message.parsed?.selectedOptionIndex || 0;
-  return optionIndex;
-
-   } catch(err){
-    console.error('Error classifying message:', err);
-    
-   }
-}
+interview.addNode({
+    id: '1-1',
+    text: `Nice to meet you, ${interview.getUserName()}! Which location are you applying for?`,
+    options: []
+})
 
 export async function POST(req: Request) {
 
@@ -124,8 +67,9 @@ export async function POST(req: Request) {
             interview.loadState(conversationState);
         } else {
             const initialState: ConversationState = {
-                currentNodeId: 'start',
-                status: ConversationStatus.InProgress
+                currentNodeId: '0-0',
+                status: ConversationStatus.InProgress,
+                flags: {}
             }
             interview.loadState(
                 JSON.stringify(initialState)
@@ -143,8 +87,16 @@ export async function POST(req: Request) {
 
         const lastUserMessage = messages[messages.length-1];
         const availableOptions = interview.getAvailableOptions();
+  
         const optionIndex = await classifyUserMessage(lastUserMessage.content, availableOptions);
-        interview.processUserResponse(optionIndex || 0);
+        
+        if (interview.getFlag('collectName')){
+            
+            interview.processUserResponse(optionIndex || 0, lastUserMessage.content)
+        } else {
+            interview.processUserResponse(optionIndex || 0);
+        }
+        
         const botMessageText = interview.getDialogueText();
         const response: BotResponse = {role: 'assistant', content: botMessageText, status: interview.getStatus()}
 

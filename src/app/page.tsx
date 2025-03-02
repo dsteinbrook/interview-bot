@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer, CircularProgress } from '@mui/material';
 import { DBConversation, createConversation, getConversations, getConversationMessages } from '@/utils/db';
-import AddIcon from '@mui/icons-material/Add';
+import {Add} from '@mui/icons-material';
 import {ConversationStatus} from '../utils/interviewController';
 
 interface Message {
@@ -255,7 +255,7 @@ export default function Home() {
           <Button
             fullWidth
             variant="contained"
-            startIcon={<AddIcon />}
+            startIcon={<Add />}
             onClick={() => {startNewConversation(conversations.length)}}
           >
             New Chat
@@ -322,7 +322,7 @@ export default function Home() {
                 <Typography>{message.content}</Typography>
               </Paper>
             ))}
-            {isLoading && <Paper sx={{
+            {isLoading && messages.length > 0 && <Paper sx={{
               p: 2,
               maxWidth: '80%',
               alignSelf: 'flex-start',
@@ -331,10 +331,14 @@ export default function Home() {
             }}>
               <CircularProgress />
               </Paper>}
+              {
+                status === ConversationStatus.Completed && <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'}}><Typography variant="h5" color="success">{'The interview is complete.'}</Typography></div>
+              }
             <div ref={messagesEndRef} />
           </Box>
           <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
             <TextField
+              inputRef={input => input && input.focus()}
               fullWidth
               multiline
               maxRows={4}
