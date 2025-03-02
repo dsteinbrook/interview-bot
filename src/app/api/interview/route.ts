@@ -1,44 +1,51 @@
-import { Interview } from "@/utils/interviewController";
+import { Interview, ConversationStatus, ConversationState } from "@/utils/interviewController";
 import {NextResponse} from 'next/server';
 import {OpenAI} from 'openai';
 import {zodResponseFormat} from "openai/helpers/zod";
 import {z} from "zod";
-import {ChatMessage} from "@/app/page"
+import {getConversationState, setConversationState, addMessage} from "@/utils/db";
 
 // Define the Zod schema for the structured output
 const ClassificationSchema = z.object({
     selectedOptionIndex: z.number()
   });
 
+interface ChatMessage {
+role: 'user' | 'assistant' | 'system';
+content: string;
+}
+
+
+
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-// const interview = new Interview('start');
+const interview = new Interview('start');
 
-// interview.addNode({
-//     id: 'start',
-//     text: 'Hello! Are you currently open to discussing the forklift operator role?',
-//     options: [
-//         {
-//             text: 'Yes',
-//             nextNodeId: 'open_to_discuss',
-//         },
-//         {
-//             text: 'No',
-//             nextNodeId: null,
-//         }
-//     ]
-// });
+interview.addNode({
+    id: 'start',
+    text: 'Hello! Are you currently open to discussing the forklift operator role?',
+    options: [
+        {
+            text: 'Yes',
+            nextNodeId: 'open_to_discuss',
+        },
+        {
+            text: 'No',
+            nextNodeId: null,
+        }
+    ]
+});
 
-// interview.addNode({
-//     id: 'open_to_discuss',
-//     text: 'Great! I can send you some more information about the role and the application process.',
-//     options: [
+interview.addNode({
+    id: 'open_to_discuss',
+    text: 'Great! I can send you some more information about the role and the application process.',
+    options: [
         
-//     ]
-// });
+    ]
+});
 
 async function classifyUserMessage(userMessage: string, options: string[]) {
    try {
@@ -99,38 +106,37 @@ You must select exactly one option.
 
 export async function POST(req: Request) {
 
-    const interview = new Interview('start');
 
-interview.addNode({
-    id: 'start',
-    text: 'Hello! Are you currently open to discussing the forklift operator role?',
-    options: [
-        {
-            text: 'Yes',
-            nextNodeId: 'open_to_discuss',
-        },
-        {
-            text: 'No',
-            nextNodeId: null,
-        }
-    ]
-});
-
-interview.addNode({
-    id: 'open_to_discuss',
-    text: 'Great! I can send you some more information about the role and the application process.',
-    options: [
-        
-    ]
-});
     try {
 
-        const {userMessage} = await req.json();
+        const {messages, conversationId} = await req.json();
+
+        const conversationState = await getConversationState(conversationId);
+        if (conversationState){
+            interview.loadState(conversationState);
+        } else {
+            const initialState: ConversationState = {
+                currentNodeId: 'start',
+                status: ConversationStatus.InProgress
+            }
+            interview.loadState(
+                JSON.stringify(initialState)
+            )
+        }
+
+
+        const lastUserMessage = messages[messages.length-1];
         const availableOptions = interview.getAvailableOptions();
-        const optionIndex = await classifyUserMessage(userMessage.content, availableOptions);
+        const optionIndex = await classifyUserMessage(lastUserMessage.content, availableOptions);
         interview.processUserResponse(optionIndex || 0);
         const botMessageText = interview.getDialogueText();
         const response: ChatMessage = {role: 'assistant', content: botMessageText}
+
+        const savedState = interview.saveState();
+
+        await setConversationState(conversationId, savedState);
+        await addMessage(conversationId, lastUserMessage.role, lastUserMessage.content);
+        await addMessage(conversationId, 'assistant', response.content);
     
         return NextResponse.json(response);
 

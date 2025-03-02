@@ -11,12 +11,12 @@ interface DialogueOption {
     onSelect?: (state: ConversationState) => void;
 }
 
-enum ConversationStatus {
+export enum ConversationStatus {
     InProgress = 'IN_PROGRESS',
     Completed = 'COMPLETED',
 }
 
-interface ConversationState {
+export interface ConversationState {
     currentNodeId: string | null;
     status: ConversationStatus;
 }
@@ -36,8 +36,10 @@ export class Interview {
     addNode(node: DialogueNode) {
         this.dialogueTree.set(node.id, node);
     }
-
     getCurrentNode(): DialogueNode | null {
+        if (this.state.currentNodeId === null) {
+            return null;
+        }
         return this.dialogueTree.get(this.state.currentNodeId) || null;
     }
 
