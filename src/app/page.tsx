@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer, CircularProgress } from '@mui/material';
 import { DBConversation, createConversation, getConversations, getConversationMessages } from '@/utils/db';
 import AddIcon from '@mui/icons-material/Add';
+import {ConversationStatus} from '../utils/interviewController';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -22,6 +23,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [status, setStatus] = useState<ConversationStatus>(ConversationStatus.InProgress)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +110,7 @@ export default function Home() {
 
       const data = await response.json();
       console.log('data', data);
+      setStatus(data.status);
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.content,
@@ -176,6 +179,7 @@ export default function Home() {
 
         const data = await response.json();
         console.log('data', data);
+        setStatus(data.status);
         const assistantMessage: Message = {
           role: 'assistant',
           content: data.content,
@@ -338,7 +342,7 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleSubmit}
               placeholder="Type your message and press Enter to send..."
-              disabled={isLoading}
+              disabled={isLoading || status === ConversationStatus.Completed}
               sx={{ 
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2

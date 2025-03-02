@@ -10,9 +10,10 @@ const ClassificationSchema = z.object({
     selectedOptionIndex: z.number()
   });
 
-interface ChatMessage {
+interface BotResponse {
 role: 'user' | 'assistant' | 'system';
 content: string;
+status: ConversationStatus
 }
 
 const openai = new OpenAI({
@@ -31,10 +32,20 @@ interview.addNode({
         },
         {
             text: 'No',
-            nextNodeId: null,
+            nextNodeId: 'not_open_to_discuss',
         }
     ]
 });
+
+interview.addNode({
+    id: 'not_open_to_discuss',
+    text: 'No problem. Best of luck!',
+    onEnter: () => {
+        interview.updateStatus(ConversationStatus.Completed)
+    },
+    options: []
+
+})
 
 interview.addNode({
     id: 'open_to_discuss',
@@ -121,9 +132,10 @@ export async function POST(req: Request) {
             )
         }
 
-        if (messages.length === 0){
 
-            const response: ChatMessage = {role: 'assistant', content: interview.getDialogueText()};
+        if (messages.length === 0 || interview.getStatus() === ConversationStatus.Completed){
+
+            const response: BotResponse = {role: 'assistant', content: interview.getDialogueText(), status: interview.getStatus()};
             return NextResponse.json(response);
 
         }
@@ -134,7 +146,7 @@ export async function POST(req: Request) {
         const optionIndex = await classifyUserMessage(lastUserMessage.content, availableOptions);
         interview.processUserResponse(optionIndex || 0);
         const botMessageText = interview.getDialogueText();
-        const response: ChatMessage = {role: 'assistant', content: botMessageText}
+        const response: BotResponse = {role: 'assistant', content: botMessageText, status: interview.getStatus()}
 
         const savedState = interview.saveState();
 

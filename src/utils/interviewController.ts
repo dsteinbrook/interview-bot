@@ -84,10 +84,15 @@ getAvailableOptions(): string[] {
 getDialogueText(): string {
     const currentNode = this.getCurrentNode();
     if (currentNode === null){
-        return 'Okay, no problem. The interview is concluded.'
+        this.updateStatus(ConversationStatus.Completed)
+        return 'The interview is concluded.'
     } else {
         return currentNode.text
     }
+}
+
+getStatus(){
+    return this.state.status
 }
 
 updateStatus(status: ConversationStatus) {
