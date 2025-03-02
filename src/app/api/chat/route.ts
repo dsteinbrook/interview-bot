@@ -2,7 +2,7 @@ import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { addMessage } from '@/utils/db';
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }

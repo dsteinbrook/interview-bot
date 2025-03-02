@@ -17,7 +17,7 @@ enum ConversationStatus {
 }
 
 interface ConversationState {
-    currentNodeId: string;
+    currentNodeId: string | null;
     status: ConversationStatus;
 }
 
@@ -65,6 +65,26 @@ export class Interview {
         
     } else {
         this.state.status = ConversationStatus.Completed;
+        this.state.currentNodeId = null;
+    }
+}
+
+getAvailableOptions(): string[] {
+    const currentNode = this.getCurrentNode();
+    if (!currentNode){
+        return []
+    }
+    return currentNode.options.map(
+        option => option.text
+    )
+}
+
+getDialogueText(): string {
+    const currentNode = this.getCurrentNode();
+    if (currentNode === null){
+        return 'Okay, no problem. The interview is concluded.'
+    } else {
+        return currentNode.text
     }
 }
 
