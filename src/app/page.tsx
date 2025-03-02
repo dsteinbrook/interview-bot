@@ -27,8 +27,20 @@ export default function Home() {
 
   // Load initial conversations
   useEffect(() => {
-    loadConversations(1, true);
+
+    async function onLoad(){
+    const index = await loadConversations(1, true);
+  
+    startNewConversation(index || 0);
+    
+    
+
+    }
+    onLoad();
+    
   }, []);
+
+
 
   // Intersection Observer for infinite scrolling
   useEffect(() => {
@@ -56,6 +68,7 @@ export default function Home() {
       setHasMoreConversations(result.hasMore);
       setConversations(prev => reset ? result.conversations : [...prev, ...result.conversations]);
       setCurrentPage(page);
+      return result.conversations.length;
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -69,16 +82,45 @@ export default function Home() {
     }
   };
 
-  const startNewConversation = async () => {
+  const startNewConversation = async (index: number) => {
     try {
-      const title = `Conversation ${conversations.length + 1}`;
+      const title = `Conversation ${index + 1}`;
       const newConversationId = await createConversation(title);
       setCurrentConversationId(newConversationId);
       setMessages([]);
+
+      setIsLoading(true);
+
+      const response = await fetch('/api/interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [],
+          conversationId: newConversationId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      console.log('data', data);
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.content,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+
+
       // Reload first page of conversations
       await loadConversations(1, true);
     } catch (error) {
       console.error('Error creating new conversation:', error);
+    } finally {
+      setIsLoading(false)
     }
   };
 
@@ -108,7 +150,7 @@ export default function Home() {
       e.preventDefault();
 
       if (!currentConversationId) {
-        await startNewConversation();
+        await startNewConversation(conversations.length);
       }
 
       const userMessage: Message = { role: 'user', content: input.trim() };
@@ -210,7 +252,7 @@ export default function Home() {
             fullWidth
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={startNewConversation}
+            onClick={() => {startNewConversation(conversations.length)}}
           >
             New Chat
           </Button>
@@ -276,6 +318,15 @@ export default function Home() {
                 <Typography>{message.content}</Typography>
               </Paper>
             ))}
+            {isLoading && <Paper sx={{
+              p: 2,
+              maxWidth: '80%',
+              alignSelf: 'flex-start',
+              bgColor: 'background.paper',
+              color: 'text.primary'
+            }}>
+              <CircularProgress />
+              </Paper>}
             <div ref={messagesEndRef} />
           </Box>
           <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>

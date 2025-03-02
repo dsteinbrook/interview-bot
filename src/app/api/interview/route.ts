@@ -15,9 +15,6 @@ role: 'user' | 'assistant' | 'system';
 content: string;
 }
 
-
-
-
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
@@ -122,6 +119,13 @@ export async function POST(req: Request) {
             interview.loadState(
                 JSON.stringify(initialState)
             )
+        }
+
+        if (messages.length === 0){
+
+            const response: ChatMessage = {role: 'assistant', content: interview.getDialogueText()};
+            return NextResponse.json(response);
+
         }
 
 
