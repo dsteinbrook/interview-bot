@@ -1,12 +1,13 @@
 import { Interview, ConversationStatus, ConversationState } from "@/utils/interviewController";
 import {NextResponse} from 'next/server';
-import {classifyUserMessage} from '@/utils/openai'
+import {classifyUserMessage, answerUserQuestion} from '@/utils/openai'
 import {getConversationState, setConversationState, addMessage} from "@/utils/db";
 
 interface BotResponse {
 role: 'user' | 'assistant' | 'system';
 content: string;
-status: ConversationStatus
+status: ConversationStatus;
+skipUserInput: boolean;
 }
 
 const interview = new Interview('0-0');
@@ -22,6 +23,11 @@ interview.addNode({
         {
             text: 'No',
             nextNodeId: '0-1',
+        },
+        {
+            text: 'question',
+            nextNodeId: '0-0',
+            onSelect: () => interview.setFlag('question', true)
         }
     ]
 });
@@ -34,7 +40,7 @@ interview.addNode({
     },
     options: []
 
-})
+});
 
 interview.addNode({
     id: '1-0',
@@ -60,7 +66,7 @@ export async function POST(req: Request) {
 
     try {
 
-        const {messages, conversationId} = await req.json();
+        const {messages, conversationId, newQuestion} = await req.json();
 
         const conversationState = await getConversationState(conversationId);
         if (conversationState){
@@ -78,8 +84,20 @@ export async function POST(req: Request) {
 
 
         if (messages.length === 0 || interview.getStatus() === ConversationStatus.Completed){
+          
+            const response: BotResponse = {role: 'assistant', content: interview.getDialogueText(), status: interview.getStatus(), skipUserInput: false};
+            return NextResponse.json(response);
 
-            const response: BotResponse = {role: 'assistant', content: interview.getDialogueText(), status: interview.getStatus()};
+        }
+
+        if (newQuestion){
+            console.log('reached here newQuestion');
+            interview.setFlag('question', false);
+            const savedState = interview.saveState();
+            const response: BotResponse = {role: 'assistant', content: interview.getDialogueText(), status: interview.getStatus(), skipUserInput: false};
+            await setConversationState(conversationId, savedState);
+            await addMessage(conversationId, response.role, response.content);
+           
             return NextResponse.json(response);
 
         }
@@ -91,14 +109,24 @@ export async function POST(req: Request) {
         const optionIndex = await classifyUserMessage(lastUserMessage.content, availableOptions);
         
         if (interview.getFlag('collectName')){
-            
             interview.processUserResponse(optionIndex || 0, lastUserMessage.content)
         } else {
             interview.processUserResponse(optionIndex || 0);
         }
+
+        let botMessageText;
+
+        if (interview.getFlag('question')){
+
+            botMessageText = (await answerUserQuestion(messages))?.content;
+            
+
+        } else {
+            botMessageText = interview.getDialogueText();
+        }
         
-        const botMessageText = interview.getDialogueText();
-        const response: BotResponse = {role: 'assistant', content: botMessageText, status: interview.getStatus()}
+        
+        const response: BotResponse = {role: 'assistant', content: botMessageText as string, status: interview.getStatus(), skipUserInput: interview.getFlag('question')}
 
         const savedState = interview.saveState();
 

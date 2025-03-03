@@ -58,9 +58,6 @@ export class Interview {
 
         if (userInput && this.state.flags['collectName']){
             this.setUserName(userInput);
-            
-            
-            console.log('reached here', userInput);
         }
 
         const selectedOption = currentNode.options[optionIndex];

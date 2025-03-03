@@ -11,6 +11,12 @@ interface Message {
   content: string;
 }
 
+interface RequestType {
+  messages: Message[],
+  conversationId?: number,
+  newQuestion: boolean
+}
+
 const DRAWER_WIDTH = 300;
 const CONVERSATIONS_PAGE_SIZE = 20;
 
@@ -84,6 +90,35 @@ export default function Home() {
     }
   };
 
+  const fetchInterview = async (request: RequestType) => {
+
+    try {
+      const response = await fetch('/api/interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: request.messages,
+          conversationId: request.conversationId,
+          newQuestion: request.newQuestion
+
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      return data;
+
+  } catch(err){
+    console.log(err);
+    window.alert('Something went wrong')
+  }
+}
+
   const startNewConversation = async (index: number) => {
     try {
       const title = `Conversation ${index + 1}`;
@@ -122,6 +157,7 @@ export default function Home() {
       await loadConversations(1, true);
     } catch (error) {
       console.error('Error creating new conversation:', error);
+      window.alert('Something went wrong');
     } finally {
       setIsLoading(false)
     }
@@ -162,32 +198,66 @@ export default function Home() {
       setIsLoading(true);
 
       try {
-        const response = await fetch('/api/interview', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: [...messages, userMessage],
-            conversationId: currentConversationId
-          }),
-        });
+        const data = await fetchInterview({messages: [...messages, userMessage], conversationId: currentConversationId as number, newQuestion: false});
+        //request another question from bot without user input
+        if (data.skipUserInput){
 
-        if (!response.ok) {
-          throw new Error('Failed to get response');
+          const newData = await fetchInterview({messages: [...messages, userMessage], conversationId: currentConversationId as number, newQuestion: true});
+          console.log('newData', newData);
+          setStatus(newData.status);
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.content,
+          };
+          const newAssistantMessage: Message = {
+            role: 'assistant',
+            content: newData.content
+          }
+          setMessages(prev => [...prev, assistantMessage, newAssistantMessage]);
+
+        } else {
+
+          console.log('data', data);
+          setStatus(data.status);
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.content,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+
         }
+       
+        // const response = await fetch('/api/interview', {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //   },
+        //   body: JSON.stringify({
+        //     messages: [...messages, userMessage],
+        //     conversationId: currentConversationId
+        //   }),
+        // });
 
-        const data = await response.json();
-        console.log('data', data);
-        setStatus(data.status);
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.content,
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+        // if (!response.ok) {
+        //   throw new Error('Failed to get response');
+        // }
+
+        // const data = await response.json();
+        // console.log('data', data);
+        // setStatus(data.status);
+        // const assistantMessage: Message = {
+        //   role: 'assistant',
+        //   content: data.content,
+        // };
+        // setMessages(prev => [...prev, assistantMessage]);
+
+       
+
+
+
       } catch (error) {
         console.error('Error:', error);
-        // You might want to show an error message to the user here
+        window.alert('Something went wrong')
       } finally {
         setIsLoading(false);
       }
