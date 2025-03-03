@@ -80,7 +80,7 @@ export async function classifyUserMessage(userMessage: string, options: string[]
  export async function answerUserQuestion(previousMessages: ChatMessage[]){
     try {
 
-        const systemPrompt = `You are conducting an interview for a forklift operator role in New Jersey. Answer the user's question about the role based on the following job description. If you are not able to answer, inform the user that you are not able to answer their question.
+        const systemPrompt = `You are conducting an interview for a forklift operator role in New Jersey. Answer the user's question about the role based on the following job description. If you are not able to answer, inform the user that you are not able to answer their question. Do not end your response with a question.
 
         Job Title: Forklift Operator
 
@@ -118,7 +118,7 @@ export async function classifyUserMessage(userMessage: string, options: string[]
         Warehouse environment with potential exposure to loud noise, temperature changes, and heavy machinery.
         Benefits:
 
-        Competitive pay and overtime opportunities.
+        25 dollars/hour and overtime opportunities.
         Health, dental, and vision insurance.
         Paid time off (PTO) and holidays.
         401(k) with company match.

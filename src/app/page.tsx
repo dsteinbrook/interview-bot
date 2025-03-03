@@ -41,8 +41,6 @@ export default function Home() {
   
     startNewConversation(index || 0);
     
-    
-
     }
     onLoad();
     
@@ -328,7 +326,7 @@ export default function Home() {
             startIcon={<Add />}
             onClick={() => {startNewConversation(conversations.length)}}
           >
-            New Chat
+            New Interview
           </Button>
         </Box>
         <List sx={{ overflow: 'auto', flex: 1, position: 'relative' }}>
