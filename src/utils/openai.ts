@@ -6,7 +6,7 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-//schema for structured format of classifyUserMessage function
+//schema for structured output of classifyUserMessage function
 const ClassificationSchema = z.object({
     selectedOptionIndex: z.number()
   });
@@ -16,25 +16,20 @@ interface ChatMessage {
     content: string;
   }
 
-
+//classify user message as one of the options using openai structured outputs
 export async function classifyUserMessage(userMessage: string, options: string[]) {
-    if (options.length === 1){
+    if (options.length <= 1){
         return 0
     }
     try {
- 
-     console.log('userMessage', userMessage);
-     console.log('options', options);
  
      if (!userMessage.trim()) {
          throw new Error('User message cannot be empty');
        }
        
-       if (!options.length) {
-         throw new Error('Options array cannot be empty');
-       }
+    
  
-         // Format options for the prompt
+    // Format options for the prompt
      const formattedOptions = options
      .map((option, index) => `${index}: ${option}`)
      .join('\n');
@@ -77,6 +72,7 @@ export async function classifyUserMessage(userMessage: string, options: string[]
     }
  }
 
+ //answer user question based on job description
  export async function answerUserQuestion(previousMessages: ChatMessage[]){
     try {
 

@@ -142,7 +142,6 @@ export default function Home() {
       }
 
       const data = await response.json();
-      console.log('data', data);
       setStatus(data.status);
       const assistantMessage: Message = {
         role: 'assistant',
@@ -201,7 +200,6 @@ export default function Home() {
         if (data.skipUserInput){
 
           const newData = await fetchInterview({messages: [...messages, userMessage], conversationId: currentConversationId as number, newQuestion: true});
-          console.log('newData', newData);
           setStatus(newData.status);
           const assistantMessage: Message = {
             role: 'assistant',
@@ -215,7 +213,6 @@ export default function Home() {
 
         } else {
 
-          console.log('data', data);
           setStatus(data.status);
           const assistantMessage: Message = {
             role: 'assistant',
@@ -224,34 +221,6 @@ export default function Home() {
           setMessages(prev => [...prev, assistantMessage]);
 
         }
-       
-        // const response = await fetch('/api/interview', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     messages: [...messages, userMessage],
-        //     conversationId: currentConversationId
-        //   }),
-        // });
-
-        // if (!response.ok) {
-        //   throw new Error('Failed to get response');
-        // }
-
-        // const data = await response.json();
-        // console.log('data', data);
-        // setStatus(data.status);
-        // const assistantMessage: Message = {
-        //   role: 'assistant',
-        //   content: data.content,
-        // };
-        // setMessages(prev => [...prev, assistantMessage]);
-
-       
-
-
 
       } catch (error) {
         console.error('Error:', error);
@@ -261,50 +230,6 @@ export default function Home() {
       }
     }
   };
-
-  // const handleSubmit = async (e: React.KeyboardEvent) => {
-  //   if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
-  //     e.preventDefault();
-
-  //     if (!currentConversationId) {
-  //       await startNewConversation();
-  //     }
-
-  //     const userMessage: Message = { role: 'user', content: input.trim() };
-  //     setMessages(prev => [...prev, userMessage]);
-  //     setInput('');
-  //     setIsLoading(true);
-
-  //     try {
-  //       const response = await fetch('/api/chat', {
-  //         method: 'POST',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //         },
-  //         body: JSON.stringify({
-  //           messages: [...messages, userMessage],
-  //           conversationId: currentConversationId
-  //         }),
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error('Failed to get response');
-  //       }
-
-  //       const data = await response.json();
-  //       const assistantMessage: Message = {
-  //         role: 'assistant',
-  //         content: data.content,
-  //       };
-  //       setMessages(prev => [...prev, assistantMessage]);
-  //     } catch (error) {
-  //       console.error('Error:', error);
-  //       // You might want to show an error message to the user here
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   }
-  // };
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
