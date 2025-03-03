@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# interview-bot
 
-## Getting Started
+## usage
 
-First, run the development server:
+clone repo onto local machine (requires sqlite installed, comes by default with macOS) and navigate to root directory.
 
-```bash
+create a .env file with ```OPENAI_API_KEY=<your key here>```
+
+to run dev environment on http://localhost:3000
+
+```
+npm install
+npm run create-db
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## about
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The interview bot works by following a script configured for a forklift operator interview (see ```src/utils/interviewScript.ts```) using the interview class declared in ```src/utils/interviewController.ts```. 
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The script works by defining a conversation tree, where each node defines the bot's response at that node along with an array of options corresponding to possible user responses, each with a pointer to the next node if that option is selected. The user's responses are classified as one of the available options using openai's structured outputs api (see ```src/utils/openai.ts```).
 
-## Learn More
+The bot has the ability to answer users' questions about the role when the user input is classified as a question, by querying the openai api using an ai-generated job description for the forklift operator role. When the user has an unexpected response that doesn't answer the question, the bot is directed using the script to repeat the question.
 
-To learn more about Next.js, take a look at the following resources:
+The interview class saves its state in a sqlite database along with the previous messages so the interviews can be loaded and resumed. When the interview state is set as concluded further user responses are disabled. 
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

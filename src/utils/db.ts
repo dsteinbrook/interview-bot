@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Database path (two levels up from utils)
-const dbPath = join(__dirname, '..', '..', 'chat_history_2.db');
+const dbPath = join(__dirname, '..', '..', 'chat_history.db');
 
 export interface DBMessage {
   id: number;

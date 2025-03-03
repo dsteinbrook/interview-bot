@@ -2,12 +2,14 @@ interface DialogueNode {
     id: string;
     text: string;
     options: DialogueOption[];
+    //callback run on entering node
     onEnter?: (state: ConversationState) => void;
 }
 
 interface DialogueOption {
     text?: string;
     nextNodeId: string | null;
+    //callback run on selecting option
     onSelect?: (state: ConversationState) => void;
 }
 
@@ -69,6 +71,7 @@ export class Interview {
     if (selectedOption.nextNodeId) {
         this.state.currentNodeId = selectedOption.nextNodeId;
         const nextNode = this.getCurrentNode();
+        //customize text for user's name
         if (this.getFlag('collectName') && nextNode){
             nextNode.text = `Nice to meet you, ${this.getUserName()}! Which location are you applying for?`;
             this.setFlag('collectName', false);
@@ -83,61 +86,61 @@ export class Interview {
     }
 }
 
-getAvailableOptions(): string[] {
-    const currentNode = this.getCurrentNode();
-    if (!currentNode){
-        return []
+    getAvailableOptions(): string[] {
+        const currentNode = this.getCurrentNode();
+        if (!currentNode){
+            return []
+        }
+        return currentNode.options.map(
+            option => option.text || ''
+        ).filter(text => text !== '')
     }
-    return currentNode.options.map(
-        option => option.text || ''
-    ).filter(text => text !== '')
-}
 
-getDialogueText(): string {
-    const currentNode = this.getCurrentNode();
-    if (currentNode === null){
-        this.updateStatus(ConversationStatus.Completed)
-        return 'The interview is concluded.'
-    } else {
-        return currentNode.text
+    getDialogueText(): string {
+        const currentNode = this.getCurrentNode();
+        if (currentNode === null){
+            this.updateStatus(ConversationStatus.Completed)
+            return 'The interview is concluded.'
+        } else {
+            return currentNode.text
+        }
     }
-}
 
-getStatus(){
-    return this.state.status
-}
-
-updateStatus(status: ConversationStatus) {
-    this.state.status = status;
-}
-
-getUserName(){
-    return this.state.userName
-}
-
-setUserName(userName: string){
-    this.state.userName = userName;
-}
-
-setFlag(flag: string, value: boolean){
-    this.state.flags[flag] = value;
-}
-
-getFlag(flag: string){
-    return this.state.flags[flag] || false
-}
-
-saveState() {
-    return JSON.stringify(this.state);
-}
-
-loadState(savedState: string){
-    try {
-        this.state = JSON.parse(savedState);
-    } catch (error) {
-        console.error('Error loading state:', error);
+    getStatus(){
+        return this.state.status
     }
-}
+
+    updateStatus(status: ConversationStatus) {
+        this.state.status = status;
+    }
+
+    getUserName(){
+        return this.state.userName
+    }
+
+    setUserName(userName: string){
+        this.state.userName = userName;
+    }
+
+    setFlag(flag: string, value: boolean){
+        this.state.flags[flag] = value;
+    }
+
+    getFlag(flag: string){
+        return this.state.flags[flag] || false
+    }
+
+    saveState() {
+        return JSON.stringify(this.state);
+    }
+
+    loadState(savedState: string){
+        try {
+            this.state = JSON.parse(savedState);
+        } catch (error) {
+            console.error('Error loading state:', error);
+        }
+    }
 
 }
 

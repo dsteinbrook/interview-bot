@@ -27,8 +27,6 @@ export async function classifyUserMessage(userMessage: string, options: string[]
          throw new Error('User message cannot be empty');
        }
        
-    
- 
     // Format options for the prompt
      const formattedOptions = options
      .map((option, index) => `${index}: ${option}`)
@@ -36,14 +34,14 @@ export async function classifyUserMessage(userMessage: string, options: string[]
    
    // Create the system prompt
    const systemPrompt = `
- You are a classification assistant. Your task is to classify the user's message into exactly one of the provided options.
- Choose the option that best matches the user's message.
- 
- Available options:
- ${formattedOptions}
- 
- Respond with the index of the selected option (0 to ${options.length - 1}).
- You must select exactly one option.
+        You are a classification assistant. Your task is to classify the user's message into exactly one of the provided options.
+        Choose the option that best matches the user's message.
+        
+        Available options:
+        ${formattedOptions}
+        
+        Respond with the index of the selected option (0 to ${options.length - 1}).
+        You must select exactly one option.
  `;
  
    // Make the API call with structured output

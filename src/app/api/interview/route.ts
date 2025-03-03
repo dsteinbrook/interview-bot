@@ -43,6 +43,7 @@ export async function POST(req: Request) {
 
         }
 
+        //handle case where bot needs to send a second message in a row aftering answering a question
         if (newQuestion){
             interview.setFlag('question', false);
             const savedState = interview.saveState();
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
   
         const optionIndex = await classifyUserMessage(lastUserMessage.content, availableOptions);
         
+        //save user's inputted name
         if (interview.getFlag('collectName')){
             interview.processUserResponse(optionIndex || 0, lastUserMessage.content)
         } else {
@@ -65,6 +67,7 @@ export async function POST(req: Request) {
 
         let botMessageText;
 
+        //query openai to answer user's question
         if (interview.getFlag('question')){
 
             botMessageText = (await answerUserQuestion(messages))?.content;
