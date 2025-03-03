@@ -22,6 +22,7 @@ export interface DBMessage {
 export interface DBConversation {
   id: number;
   title: string;
+  state: string;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +131,34 @@ export async function deleteConversation(conversationId: number): Promise<void> 
   const db = await getDb();
   try {
     await db.run('DELETE FROM conversations WHERE id = ?', conversationId);
+  } finally {
+    await db.close();
+  }
+}
+
+// Get conversation state
+export async function getConversationState(conversationId: number): Promise<string | null> {
+  const db = await getDb();
+  try {
+    const result = await db.get<{ state: string | null }>(
+      'SELECT state FROM conversations WHERE id = ?',
+      conversationId
+    );
+    return result?.state || null;
+  } finally {
+    await db.close();
+  }
+}
+
+// Set conversation state
+export async function setConversationState(conversationId: number, state: string): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.run(
+      'UPDATE conversations SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      state,
+      conversationId
+    );
   } finally {
     await db.close();
   }

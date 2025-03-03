@@ -3,11 +3,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { TextField, Paper, Box, Typography, Button, List, ListItemButton, ListItemText, Drawer, CircularProgress } from '@mui/material';
 import { DBConversation, createConversation, getConversations, getConversationMessages } from '@/utils/db';
-import AddIcon from '@mui/icons-material/Add';
+import {Add} from '@mui/icons-material';
+import {ConversationStatus} from '../utils/interviewController';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+}
+
+interface RequestType {
+  messages: Message[],
+  conversationId?: number,
+  newQuestion: boolean
 }
 
 const DRAWER_WIDTH = 300;
@@ -22,13 +29,24 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [status, setStatus] = useState<ConversationStatus>(ConversationStatus.InProgress)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationsContainerRef = useRef<HTMLDivElement>(null);
 
   // Load initial conversations
   useEffect(() => {
-    loadConversations(1, true);
+
+    async function onLoad(){
+    const index = await loadConversations(1, true);
+  
+    startNewConversation(index || 0);
+    
+    }
+    onLoad();
+    
   }, []);
+
+
 
   // Intersection Observer for infinite scrolling
   useEffect(() => {
@@ -56,6 +74,7 @@ export default function Home() {
       setHasMoreConversations(result.hasMore);
       setConversations(prev => reset ? result.conversations : [...prev, ...result.conversations]);
       setCurrentPage(page);
+      return result.conversations.length;
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -69,16 +88,75 @@ export default function Home() {
     }
   };
 
-  const startNewConversation = async () => {
+  const fetchInterview = async (request: RequestType) => {
+
     try {
-      const title = `Conversation ${conversations.length + 1}`;
+      const response = await fetch('/api/interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: request.messages,
+          conversationId: request.conversationId,
+          newQuestion: request.newQuestion
+
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      return data;
+
+  } catch(err){
+    console.log(err);
+    window.alert('Something went wrong')
+  }
+}
+
+  const startNewConversation = async (index: number) => {
+    try {
+      const title = `Conversation ${index + 1}`;
       const newConversationId = await createConversation(title);
       setCurrentConversationId(newConversationId);
       setMessages([]);
+
+      setIsLoading(true);
+
+      const response = await fetch('/api/interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [],
+          conversationId: newConversationId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      setStatus(data.status);
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.content,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+
+
       // Reload first page of conversations
       await loadConversations(1, true);
     } catch (error) {
       console.error('Error creating new conversation:', error);
+      window.alert('Something went wrong');
+    } finally {
+      setIsLoading(false)
     }
   };
 
@@ -108,7 +186,7 @@ export default function Home() {
       e.preventDefault();
 
       if (!currentConversationId) {
-        await startNewConversation();
+        await startNewConversation(conversations.length);
       }
 
       const userMessage: Message = { role: 'user', content: input.trim() };
@@ -117,30 +195,36 @@ export default function Home() {
       setIsLoading(true);
 
       try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: [...messages, userMessage],
-            conversationId: currentConversationId
-          }),
-        });
+        const data = await fetchInterview({messages: [...messages, userMessage], conversationId: currentConversationId as number, newQuestion: false});
+        //request another question from bot without user input
+        if (data.skipUserInput){
 
-        if (!response.ok) {
-          throw new Error('Failed to get response');
+          const newData = await fetchInterview({messages: [...messages, userMessage], conversationId: currentConversationId as number, newQuestion: true});
+          setStatus(newData.status);
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.content,
+          };
+          const newAssistantMessage: Message = {
+            role: 'assistant',
+            content: newData.content
+          }
+          setMessages(prev => [...prev, assistantMessage, newAssistantMessage]);
+
+        } else {
+
+          setStatus(data.status);
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.content,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+
         }
 
-        const data = await response.json();
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.content,
-        };
-        setMessages(prev => [...prev, assistantMessage]);
       } catch (error) {
         console.error('Error:', error);
-        // You might want to show an error message to the user here
+        window.alert('Something went wrong')
       } finally {
         setIsLoading(false);
       }
@@ -164,10 +248,10 @@ export default function Home() {
           <Button
             fullWidth
             variant="contained"
-            startIcon={<AddIcon />}
-            onClick={startNewConversation}
+            startIcon={<Add />}
+            onClick={() => {startNewConversation(conversations.length)}}
           >
-            New Chat
+            New Interview
           </Button>
         </Box>
         <List sx={{ overflow: 'auto', flex: 1, position: 'relative' }}>
@@ -231,10 +315,23 @@ export default function Home() {
                 <Typography>{message.content}</Typography>
               </Paper>
             ))}
+            {isLoading && messages.length > 0 && <Paper sx={{
+              p: 2,
+              maxWidth: '80%',
+              alignSelf: 'flex-start',
+              bgColor: 'background.paper',
+              color: 'text.primary'
+            }}>
+              <CircularProgress />
+              </Paper>}
+              {
+                status === ConversationStatus.Completed && <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'}}><Typography variant="h5" color="success">{'The interview is complete.'}</Typography></div>
+              }
             <div ref={messagesEndRef} />
           </Box>
           <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
             <TextField
+              inputRef={input => input && input.focus()}
               fullWidth
               multiline
               maxRows={4}
@@ -242,7 +339,7 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleSubmit}
               placeholder="Type your message and press Enter to send..."
-              disabled={isLoading}
+              disabled={isLoading || status === ConversationStatus.Completed}
               sx={{ 
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2
