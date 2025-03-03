@@ -22,6 +22,6 @@ The script works by defining a conversation tree, where each node defines the bo
 
 The bot has the ability to answer users' questions about the role when the user input is classified as a question, by querying the openai api using an ai-generated job description for the forklift operator role. When the user has an unexpected response that doesn't answer the question, the bot is directed using the script to repeat the question.
 
-The interview class saves its state in a sqlite database along with the previous messages so the interviews can be loaded and resumed. When the interview state is set as concluded further user responses are disabled. 
+The interview class state is saved in a sqlite database along with the previous messages so the interviews can be loaded and resumed. When the interview state is set as concluded further user responses are disabled. 
 
 
